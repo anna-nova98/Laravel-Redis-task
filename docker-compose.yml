@@ -1,0 +1,35 @@
+# Run both app + redis:  docker compose up -d
+services:
+  app:
+    build: .
+    container_name: telegram_bot_app
+    working_dir: /var/www
+    volumes:
+      - .:/var/www
+    env_file:
+      - .env
+    depends_on:
+      redis:
+        condition: service_healthy
+    environment:
+      - REDIS_HOST=redis
+      - REDIS_PORT=6379
+    restart: on-failure
+    command: php artisan queue:work redis --sleep=0 --tries=3 --max-time=0
+
+  redis:
+    image: redis:7-alpine
+    container_name: telegram_bot_redis
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 2s
+      timeout: 3s
+      retries: 10
+      start_period: 5s
+
+volumes:
+  redis_data:
