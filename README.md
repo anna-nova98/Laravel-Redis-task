@@ -5,7 +5,7 @@ Laravel 12 project (PHP + Redis only, no SQL database) that sends Telegram messa
 - **Global:** no more than 30 messages per second across the entire bot  
 - **Per chat:** no more than 20 messages per minute per `chat_id`
 
-Limits are enforced inside the job before calling the Telegram API, so dispatching a large batch at once does not breach limits.
+Limits are enforced via **job middleware** using Laravel's `RateLimiter` facade (Redis-backed). No custom polling or `env()` in application code; configuration is read only from config files.
 
 ---
 
@@ -31,9 +31,8 @@ copy .env.example .env
 php artisan key:generate
 ```
 
-Edit `.env` and set:
-
-- `TELEGRAM_BOT_TOKEN` – from [@BotFather](https://t.me/BotFather) (optional; without it, jobs run but skip sending)
+Edit `.env` and set `TELEGRAM_BOT_TOKEN` from [@BotFather](https://t.me/BotFather) (optional; without it, jobs run but skip sending).  
+**Never commit `.env`** — it is listed in `.gitignore`; use `.env.example` as a template only.
 
 ### 3. Start app and Redis
 
@@ -76,22 +75,24 @@ Messages appear in Telegram as the worker processes the queue (rate limits are a
 
 | Path | Description |
 |------|-------------|
-| `app/Jobs/SendMessageJob.php` | Queue job: acquires rate-limit slot, then calls Telegram API |
-| `app/Services/TelegramRateLimiter.php` | Redis limiter: 30/s global, 20/min per chat |
+| `app/Jobs/SendMessageJob.php` | Queue job: sends via `TelegramService`; rate limiting via middleware |
+| `app/Jobs/Middleware/TelegramRateLimitMiddleware.php` | Job middleware: Laravel `RateLimiter` (Redis) — 30/s global, 20/min per chat |
+| `app/Services/TelegramService.php` | Telegram API abstraction: `sendMessage()` using config only |
 | `app/Console/Commands/DispatchTelegramTestCommand.php` | Artisan command to dispatch N test jobs |
-| `config/queue.php` | Queue driver: Redis |
-| `config/redis.php` | Redis connection |
+| `config/services.php` | Telegram token and rate-limit values (from env; never `env()` in app code) |
+| `config/telegram.php` | Default chat IDs for test command |
+| `config/queue.php`, `config/redis.php` | Queue and Redis |
 | `docker-compose.yml` | App (queue worker) + Redis |
-| `Dockerfile` | PHP 8.4 + Redis extension |
+| `Dockerfile` | PHP 8.4, Redis extension; required for `docker compose build` |
 
 ---
 
-## Rate limiting (Redis)
+## Rate limiting (Laravel RateLimiter)
 
-- **Global:** key `telegram:rate:global:{second}`; INCR + TTL; if count &gt; 30, job waits and retries.  
-- **Per chat:** key `telegram:rate:chat:{chat_id}:{minute}`; INCR + TTL; if count &gt; 20, job waits until the next minute window.
+- **Global:** `RateLimiter::hit('telegram-global:' . time(), 2)` with max 30 attempts; over limit → job released with 1s delay.  
+- **Per chat:** `RateLimiter::hit('telegram-chat:{chat_id}:{minute}', 120)` with max 20 attempts; over limit → job released until next minute.
 
-No SQL database is used; only Redis is used for queue, cache, and rate-limit counters.
+Uses Laravel's built-in `Illuminate\Support\Facades\RateLimiter` (Redis cache driver). No SQL database.
 
 ---
 

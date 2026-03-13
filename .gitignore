@@ -1,1 +1,31 @@
+# Environment – never commit .env (contains secrets e.g. TELEGRAM_BOT_TOKEN)
 .env
+.env.backup
+.env.production
+*.env.local
+
+# Dependencies
+/vendor
+/node_modules
+
+# Laravel
+/storage/*.key
+/storage/logs/*
+!/storage/logs/.gitkeep
+/storage/framework/cache/data/*
+!/storage/framework/cache/data/.gitkeep
+/storage/framework/sessions/*
+!/storage/framework/sessions/.gitkeep
+/storage/framework/views/*
+!/storage/framework/views/.gitkeep
+/bootstrap/cache/*
+!/bootstrap/cache/.gitkeep
+
+# IDE / OS
+.idea
+.vscode
+.DS_Store
+Thumbs.db
+
+# Composer (keep composer.lock committed for reproducible installs)
+composer.phar
