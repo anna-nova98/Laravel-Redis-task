@@ -114,7 +114,7 @@ docker compose run --rm app php artisan telegram:dispatch-test 100
 # Dispatch 5 jobs to one chat
 docker compose run --rm app php artisan telegram:dispatch-test 5 --chat=YOUR_CHAT_ID
 ```
-
+---
 ---
 
 ## Getting your Telegram chat ID
